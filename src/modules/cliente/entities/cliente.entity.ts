@@ -1,27 +1,59 @@
 import {
-    Column,
-    CreateDateColumn,
-    Entity,
-    PrimaryGeneratedColumn
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-@Entity()
+@Entity('clientes')
 export class Cliente {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @ApiProperty({ example: 1 })
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    nome: string;
+  @ApiProperty({ example: 'João da Silva', maxLength: 100 })
+  @Column({ type: 'varchar', length: 100 })
+  nome: string;
 
-    @Column()
-    email: string;
+  @ApiProperty({ example: '(11) 98765-4321', maxLength: 20 })
+  @Column({ type: 'varchar', length: 20 })
+  telefone: string;
 
-    @Column()
-    ativo: boolean;
+  @ApiProperty({ example: 'joao.silva@example.com', maxLength: 100 })
+  @Column({ type: 'varchar', length: 100, unique: true })
+  email: string;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @ApiPropertyOptional({ example: 'Vendas', maxLength: 50 })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  setor?: string;
 
-    @Column({ nullable: true })
-    updatedAt: Date;
+  @ApiPropertyOptional({ example: 'Empresa XYZ', maxLength: 100 })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  empresa?: string;
+
+  @ApiProperty({ example: true })
+  @Column({ type: 'boolean', default: true })
+  ativo: boolean;
+
+  @ApiProperty()
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @ApiProperty()
+  @UpdateDateColumn({ name: 'updated_at', nullable: true })
+  updatedAt: Date;
+
+  // Relacionamento (quando criar módulo Projeto)
+  // @OneToMany(() => Projeto, (projeto) => projeto.cliente)
+  // projetos: Projeto[];
+
+  /**
+   * Método de domínio - SRP
+   */
+  isAtivo(): boolean {
+    return this.ativo;
+  }
 }

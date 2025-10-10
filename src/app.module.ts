@@ -4,24 +4,27 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmpresaModule } from './modules/empresa/empresa.module';
+import { ClienteModule } from './modules/cliente/cliente.module';
+import { getDatabaseConfig } from './config/database.config';
+import { CentroCustoModule } from './modules/centro-custo/centro-custo.module';
 
 @Module({
   imports: [
+    // Configuração global de variáveis de ambiente
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
-      username: process.env.DB_USERNAME || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_DATABASE || 'postgres',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true, // APENAS EM DESENVOLVIMENTO
-      logging: true,
+    
+    // Configuração do TypeORM usando arquivo de config
+    TypeOrmModule.forRootAsync({
+      useFactory: getDatabaseConfig,
     }),
-    EmpresaModule, // 👈 Adicione aqui
+    
+    // Módulos de features
+    EmpresaModule, 
+    ClienteModule,
+    CentroCustoModule
   ],
   controllers: [AppController],
   providers: [AppService],

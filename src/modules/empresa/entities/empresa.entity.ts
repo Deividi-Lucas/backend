@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { CentroCusto } from '../../centro-custo/entities/centro-custo.entity';
 
 @Entity('empresas')
 export class Empresa {
@@ -37,6 +38,24 @@ export class Empresa {
   @ApiProperty({ example: true, description: 'Status ativo/inativo da empresa' })
   @Column({ default: true })
   ativo: boolean;
+
+  // ========================================
+  // 🔗 RELACIONAMENTO COM CENTROS DE CUSTO
+  // ========================================
+
+  @ApiProperty({ 
+    type: () => [CentroCusto], 
+    description: 'Lista de centros de custo da empresa',
+    isArray: true
+  })
+  @OneToMany(() => CentroCusto, (centroCusto) => centroCusto.empresa, {
+    cascade: true, // Salva/atualiza centros de custo junto com empresa
+  })
+  centrosCusto: CentroCusto[];
+
+  // ========================================
+  // 🕒 TIMESTAMPS
+  // ========================================
 
   @ApiProperty({ example: '2025-10-08T10:00:00Z', description: 'Data de criação' })
   @CreateDateColumn({ name: 'created_at' })

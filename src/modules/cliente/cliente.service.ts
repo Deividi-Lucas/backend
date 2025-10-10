@@ -1,74 +1,142 @@
-import { Injectable,
-    NotFoundException,
-    BadRequestException,
-    ConflictException
- } from '@nestjs/common';
-
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, FindOptionsWhere, Like } from 'typeorm';
 import { Cliente } from './entities/cliente.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 
 @Injectable()
 export class ClienteService {
-    constructor(
-        @InjectRepository(Cliente)
-        private readonly clienteRepository: Repository<Cliente>,
-    ) {}
-    /**
-     * Create a new cliente
-     */
-    async create(createClienteDto: CreateClienteDto): Promise<Cliente> {
-        const cliente = this.clienteRepository.create(createClienteDto);
-        return this.clienteRepository.save(cliente);
+  constructor(
+    @InjectRepository(Cliente)
+    private readonly clienteRepository: Repository<Cliente>,
+  ) {}
+
+  /**
+   * Create a new cliente
+   * @throws ConflictException se email já existir
+   */
+  async create(createClienteDto: CreateClienteDto): Promise<Cliente> {
+    // Validar email duplicado
+    await this.validarEmailUnico(createClienteDto.email);
+
+    const cliente = this.clienteRepository.create(createClienteDto);
+    return await this.clienteRepository.save(cliente);
+  }
+
+  /**
+   * Retrieve all clientes with optional filters
+   */
+  async findAll(nome?: string, ativo?: boolean): Promise<Cliente[]> {
+    const where: FindOptionsWhere<Cliente> = {};
+
+    if (nome) {
+      where.nome = Like(`%${nome}%`);
     }
-    /**
-     * Retrieve all clientes
-     * Optional query params: ?nome=xxx&ativo=true
-     */
-    async findAll(nome?: string, ativo?: boolean): Promise<Cliente[]> {
-        const where: Partial<Cliente> = {};
-        if (nome) {
-            where.nome = Like(`%${nome}%`);
-        }
-        if (ativo !== undefined) {
-            where.ativo = ativo;
-        }
-        return this.clienteRepository.find({ where });
+
+    if (ativo !== undefined) {
+      where.ativo = ativo;
     }
-    /**
-     * Retrieve a cliente by ID
-     */
-    async findOne(id: number): Promise<Cliente> {
-        const cliente = await this.clienteRepository.findOne({ where: { id } });
-        if (!cliente) {
-            throw new NotFoundException(`Cliente with ID ${id} not found`);
-        }
-        return cliente;
+
+    return await this.clienteRepository.find({
+      where,
+      order: { nome: 'ASC' },
+    });
+  }
+
+  /**
+   * Retrieve a cliente by ID
+   * @throws NotFoundException se cliente não existir
+   */
+  async findOne(id: number): Promise<Cliente> {
+    const cliente = await this.clienteRepository.findOne({
+      where: { id },
+    });
+
+    if (!cliente) {
+      throw new NotFoundException(`Cliente com ID ${id} não encontrado`);
     }
-    /**
-     * Update a cliente by ID
-     * Only fields present in updateClienteDto will be updated
-     *  If 'ativo' is not provided, it will not be changed
-     * If 'ativo' is provided, it will be updated accordingly
-     */
-    async update(id: number, updateClienteDto: UpdateClienteDto): Promise<Cliente> {
-        const cliente = await this.findOne(id);
-        Object.assign(cliente, updateClienteDto);
-        return this.clienteRepository.save(cliente);
+
+    return cliente;
+  }
+
+  /**
+   * Update a cliente by ID
+   * @throws NotFoundException se cliente não existir
+   * @throws ConflictException se email já existir em outro cliente
+   */
+  async update(
+    id: number,
+    updateClienteDto: UpdateClienteDto,
+  ): Promise<Cliente> {
+    const cliente = await this.findOne(id);
+
+    // Validar email único se estiver sendo alterado
+    if (
+      updateClienteDto.email &&
+      updateClienteDto.email !== cliente.email
+    ) {
+      await this.validarEmailUnico(updateClienteDto.email, id);
     }
-    /**
-     * Delete a cliente by ID
-     *  If the cliente has related records, a BadRequestException is thrown
-     *  Otherwise, the cliente is deleted
-     * Returns void
-     *  If the cliente does not exist, a NotFoundException is thrown
-     * If the cliente has related records, a BadRequestException is thrown
-     * Otherwise, the cliente is deleted
-     */
-    async remove(id: number): Promise<void> {
-        const cliente = await this.findOne(id);
-        await this.clienteRepository.remove(cliente);
-    } 
+
+    Object.assign(cliente, updateClienteDto);
+    return await this.clienteRepository.save(cliente);
+  }
+
+  /**
+   * Delete a cliente by ID
+   * @throws NotFoundException se cliente não existir
+   * @throws BadRequestException se cliente tiver projetos vinculados
+   */
+  async remove(id: number): Promise<void> {
+    const cliente = await this.findOne(id);
+
+    // Verificar se tem projetos relacionados
+    // await this.validarRelacionamentos(id);
+
+    await this.clienteRepository.remove(cliente);
+  }
+
+  /**
+   * Validar se email já está cadastrado
+   * @private
+   */
+  private async validarEmailUnico(
+    email: string,
+    excludeId?: number,
+  ): Promise<void> {
+    const where: FindOptionsWhere<Cliente> = { email };
+
+    const clienteExistente = await this.clienteRepository.findOne({
+      where,
+    });
+
+    if (clienteExistente && clienteExistente.id !== excludeId) {
+      throw new ConflictException('Email já cadastrado');
+    }
+  }
+
+  /**
+   * Validar se cliente tem relacionamentos antes de deletar
+   * @private
+   */
+  private async validarRelacionamentos(id: number): Promise<void> {
+    const temProjetos = await this.clienteRepository
+      .createQueryBuilder('cliente')
+      .leftJoin('cliente.projetos', 'projeto')
+      .where('cliente.id = :id', { id })
+      .andWhere('projeto.id IS NOT NULL')
+      .getCount();
+
+    if (temProjetos > 0) {
+      throw new BadRequestException(
+        'Não é possível excluir cliente com projetos vinculados',
+      );
+    }
+  }
 }
