@@ -7,6 +7,9 @@ import { EmpresaModule } from './modules/empresa/empresa.module';
 import { ClienteModule } from './modules/cliente/cliente.module';
 import { getDatabaseConfig } from './config/database.config';
 import { CentroCustoModule } from './modules/centro-custo/centro-custo.module';
+import { FuncionarioModule } from './modules/funcionario/funcionario.module';
+import { FerramentaModule } from './modules/ferramenta/ferramenta.module';
+import { AlocacaoModule } from './modules/alocacao/alocacao.module';
 
 @Module({
   imports: [
@@ -24,7 +27,10 @@ import { CentroCustoModule } from './modules/centro-custo/centro-custo.module';
     // Módulos de features
     EmpresaModule, 
     ClienteModule,
-    CentroCustoModule
+    CentroCustoModule,
+    FuncionarioModule,
+    FerramentaModule,
+    AlocacaoModule
   ],
   controllers: [AppController],
   providers: [AppService],
