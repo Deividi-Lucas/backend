@@ -1,38 +1,8 @@
-import { IsInt, IsOptional, IsDateString, IsBoolean } from 'class-validator';
+import { IsInt, IsOptional, IsDateString, IsBoolean, IsString, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class FilterAlocacaoDto {
-  @ApiProperty({
-    example: 1,
-    description: 'Filtrar por ID da ferramenta',
-    required: false,
-  })
-  @IsInt({ message: 'ID da ferramenta deve ser um número inteiro' })
-  @IsOptional()
-  @Type(() => Number)
-  ferramentaId?: number;
-
-  @ApiProperty({
-    example: 1,
-    description: 'Filtrar por ID do centro de custo',
-    required: false,
-  })
-  @IsInt({ message: 'ID do centro de custo deve ser um número inteiro' })
-  @IsOptional()
-  @Type(() => Number)
-  centroCustoId?: number;
-
-  @ApiProperty({
-    example: 1,
-    description: 'Filtrar por ID do funcionário',
-    required: false,
-  })
-  @IsInt({ message: 'ID do funcionário deve ser um número inteiro' })
-  @IsOptional()
-  @Type(() => Number)
-  funcionarioId?: number;
-
   @ApiProperty({
     example: '2025-01-01',
     description: 'Filtrar alocações a partir desta data',
@@ -40,10 +10,12 @@ export class FilterAlocacaoDto {
     format: 'date',
     required: false,
   })
-  @IsDateString({}, { message: 'Data início deve ser uma data válida (YYYY-MM-DD)' })
+  @IsString({ message: 'Data início deve ser uma string' })
   @IsOptional()
-  @Type(() => Date)
-  dataInicio?: Date;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Data início deve estar no formato YYYY-MM-DD',
+  })
+  dataInicio?: string;
 
   @ApiProperty({
     example: '2025-12-31',
@@ -52,10 +24,12 @@ export class FilterAlocacaoDto {
     format: 'date',
     required: false,
   })
-  @IsDateString({}, { message: 'Data fim deve ser uma data válida (YYYY-MM-DD)' })
+  @IsString({ message: 'Data fim deve ser uma string' })
   @IsOptional()
-  @Type(() => Date)
-  dataFim?: Date;
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Data fim deve estar no formato YYYY-MM-DD',
+  })
+  dataFim?: string;
 
   @ApiProperty({
     example: true,

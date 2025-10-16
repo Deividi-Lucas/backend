@@ -3,9 +3,9 @@ import {
   IsNotEmpty, 
   IsOptional, 
   IsString, 
-  IsDateString,
   IsBoolean,
   MaxLength,
+  Matches,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -17,6 +17,7 @@ export class CreateAlocacaoDto {
   })
   @IsInt({ message: 'ID da ferramenta deve ser um número inteiro' })
   @IsNotEmpty({ message: 'ID da ferramenta é obrigatório' })
+  @Type(() => Number)
   ferramentaId: number;
 
   @ApiProperty({
@@ -25,6 +26,7 @@ export class CreateAlocacaoDto {
   })
   @IsInt({ message: 'ID do centro de custo deve ser um número inteiro' })
   @IsNotEmpty({ message: 'ID do centro de custo é obrigatório' })
+  @Type(() => Number)
   centroCustoId: number;
 
   @ApiProperty({
@@ -33,6 +35,7 @@ export class CreateAlocacaoDto {
   })
   @IsInt({ message: 'ID do funcionário deve ser um número inteiro' })
   @IsNotEmpty({ message: 'ID do funcionário é obrigatório' })
+  @Type(() => Number)
   funcionarioId: number;
 
   @ApiProperty({
@@ -41,34 +44,27 @@ export class CreateAlocacaoDto {
     type: 'string',
     format: 'date',
   })
-  @IsDateString({}, { message: 'Data de início deve ser uma data válida (YYYY-MM-DD)' })
+  @IsString({ message: 'Data de início deve ser uma string' })
   @IsNotEmpty({ message: 'Data de início é obrigatória' })
-  @Type(() => Date)
-  dataInicio: Date;
-
-  @ApiProperty({
-    example: '2025-12-31',
-    description: 'Data de desalocação/fim (formato: YYYY-MM-DD, opcional)',
-    type: 'string',
-    format: 'date',
-    required: false,
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Data de início deve estar no formato YYYY-MM-DD',
   })
-  @IsDateString({}, { message: 'Data de desalocação deve ser uma data válida (YYYY-MM-DD)' })
-  @IsOptional()
-  @Type(() => Date)
-  dataDesalocacao?: Date | null;
+  dataInicio: string;
+
 
   @ApiProperty({
     example: '2025-06-30',
-    description: 'Data prevista para término da alocação (formato: YYYY-MM-DD, opcional)',
+    description: 'Data prevista para término (formato: YYYY-MM-DD, opcional)',
     type: 'string',
     format: 'date',
     required: false,
   })
-  @IsDateString({}, { message: 'Data prevista para término deve ser uma data válida (YYYY-MM-DD)' })
   @IsOptional()
-  @Type(() => Date)
-  dataPrevisaoDesalocacao?: Date | null;
+  @IsString({ message: 'Data prevista para término deve ser uma string' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'Data prevista para término deve estar no formato YYYY-MM-DD',
+  })
+  dataPrevisaoDesalocacao?: string;
 
   @ApiProperty({
     example: 'Alocação para projeto de migração de sistema',
@@ -76,9 +72,9 @@ export class CreateAlocacaoDto {
     required: false,
     maxLength: 500,
   })
+  @IsOptional()
   @IsString({ message: 'Observações devem ser texto' })
   @MaxLength(500, { message: 'Observações não podem ter mais de 500 caracteres' })
-  @IsOptional()
   observacoes?: string;
 
   @ApiProperty({
@@ -87,7 +83,8 @@ export class CreateAlocacaoDto {
     default: true,
     required: false,
   })
-  @IsBoolean({ message: 'Ativo deve ser verdadeiro ou falso' })
   @IsOptional()
+  @IsBoolean({ message: 'Ativo deve ser verdadeiro ou falso' })
+  @Type(() => Boolean)
   ativo?: boolean;
 }

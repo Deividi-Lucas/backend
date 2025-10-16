@@ -16,7 +16,8 @@ export class FerramentaService {
      * */
     async createFerramenta(createFerramentaDto: CreateFerramentaDto): Promise<Ferramenta> {
         const ferramenta = this.ferramentaRepository.create(createFerramentaDto);
-        return this.ferramentaRepository.save(ferramenta);
+        await this.ferramentaRepository.save(ferramenta);
+        return ferramenta;
     }
     /**
      *  Atualizar ferramenta

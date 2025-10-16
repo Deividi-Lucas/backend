@@ -47,35 +47,35 @@ export class AlocacaoEntity {
 
   @ApiProperty({ 
     example: '2025-01-01', 
-    description: 'Data de início da alocação',
+    description: 'Data de início da alocação (formato ISO: YYYY-MM-DD)',
     type: 'string',
     format: 'date'
   })
   @Column({ type: 'date', name: 'data_inicio' })
-  dataInicio: Date;
+  dataInicio: string;
 
   @ApiProperty({ 
     example: '2025-12-31', 
-    description: 'Data de fim da alocação (opcional)',
+    description: 'Data de desalocação/fim (formato ISO: YYYY-MM-DD, opcional)',
     type: 'string',
     format: 'date',
     required: false
   })
-  @Column({ type: 'date', name: 'data_fim', nullable: true })
-  dataDesalocacao: Date | null;
+  @Column({ type: 'date', name: 'data_desalocacao', nullable: true })
+  dataDesalocacao: string | null;
 
   @ApiProperty({
     example: '2025-06-30',
-    description: 'Data prevista para término da alocação (opcional)',
+    description: 'Data prevista para término (formato ISO: YYYY-MM-DD, opcional)',
     type: 'string',
     format: 'date',
     required: false
   })
-  @Column({ type: 'date', name: 'data_previsao_fim', nullable: true })
-  dataPrevisaoDesalocacao: Date | null;
+  @Column({ type: 'date', name: 'data_previsao_desalocacao', nullable: true })
+  dataPrevisaoDesalocacao: string | null;
 
   @ApiProperty({ 
-    example: 'Alocação para projeto X', 
+    example: 'Alocação para projeto de migração', 
     description: 'Observações sobre a alocação',
     required: false
   })
@@ -86,11 +86,17 @@ export class AlocacaoEntity {
   @Column({ default: true })
   ativo: boolean;
 
-  @ApiProperty({ example: '2025-01-15T10:30:00Z', description: 'Data de criação do registro' })
+  @ApiProperty({ 
+    example: '2025-01-15T10:30:00Z', 
+    description: 'Data de criação do registro' 
+  })
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ApiProperty({ example: '2025-01-20T15:45:00Z', description: 'Data da última atualização' })
+  @ApiProperty({ 
+    example: '2025-01-20T15:45:00Z', 
+    description: 'Data da última atualização' 
+  })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

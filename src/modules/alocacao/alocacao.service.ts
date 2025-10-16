@@ -32,43 +32,20 @@ export class AlocacaoService {
 
   /**
    * 📝 Cria uma nova alocação
+   * @param createAlocacaoDto Dados para criação da alocação
+   * @returns Alocação criada
    */
   async create(createAlocacaoDto: CreateAlocacaoDto): Promise<AlocacaoEntity> {
-    // Validar existência das entidades relacionadas em paralelo
-    const [ferramenta, centroCusto, funcionario] = await Promise.all([
-      this.ferramentaRepository.findOne({
-        where: { id: createAlocacaoDto.ferramentaId, ativo: true },
-      }),
-      this.centroCustoRepository.findOne({
-        where: { id: createAlocacaoDto.centroCustoId, ativo: true },
-      }),
-      this.funcionarioRepository.findOne({
-        where: { id: createAlocacaoDto.funcionarioId, ativo: true },
-      }),
-    ]);
-
-    if (!ferramenta) {
-      throw new NotFoundException(
-        `Ferramenta com ID ${createAlocacaoDto.ferramentaId} não encontrada ou inativa`,
-      );
-    }
-
-    if (!centroCusto) {
-      throw new NotFoundException(
-        `Centro de Custo com ID ${createAlocacaoDto.centroCustoId} não encontrado ou inativo`,
-      );
-    }
-
-    if (!funcionario) {
-      throw new NotFoundException(
-        `Funcionário com ID ${createAlocacaoDto.funcionarioId} não encontrado ou inativo`,
-      );
-    }
+    // Validar existência das entidades relacionadas
+    await this.validarEntidadesRelacionadas(
+      createAlocacaoDto.ferramentaId,
+      createAlocacaoDto.centroCustoId,
+      createAlocacaoDto.funcionarioId,
+    );
 
     // Validar datas
     this.validarDatas(
       createAlocacaoDto.dataInicio,
-      createAlocacaoDto.dataDesalocacao,
       createAlocacaoDto.dataPrevisaoDesalocacao,
     );
 
@@ -77,25 +54,35 @@ export class AlocacaoService {
       createAlocacaoDto.ferramentaId,
       createAlocacaoDto.funcionarioId,
       createAlocacaoDto.dataInicio,
-      createAlocacaoDto.dataDesalocacao,
+      createAlocacaoDto.dataPrevisaoDesalocacao,
     );
+
+    // Mudar status de ferramenta para alocada
+    const ferramenta = await this.ferramentaRepository.findOne({
+      where: { id: createAlocacaoDto.ferramentaId },
+    });
+
+    if (!ferramenta) {
+      throw new NotFoundException(`Ferramenta com ID ${createAlocacaoDto.ferramentaId} não encontrada`);
+    }
+
+    ferramenta.status = 'alocada';
+    await this.ferramentaRepository.save(ferramenta);
 
     // Criar e salvar alocação
     const alocacao = this.alocacaoRepository.create(createAlocacaoDto);
-
     return await this.alocacaoRepository.save(alocacao);
   }
 
   /**
-   * 🔍 Lista todas as alocações ativas ou filtra
+   * 🔍 Lista todas as alocações com filtros opcionais
+   * @param filter Filtros de busca (opcional)
+   * @returns Array de alocações
    */
   async findAll(filter?: FilterAlocacaoDto): Promise<AlocacaoEntity[]> {
     const where: any = {};
 
     if (filter) {
-      if (filter.ferramentaId) where.ferramentaId = filter.ferramentaId;
-      if (filter.centroCustoId) where.centroCustoId = filter.centroCustoId;
-      if (filter.funcionarioId) where.funcionarioId = filter.funcionarioId;
       if (filter.ativo !== undefined) where.ativo = filter.ativo;
     } else {
       where.ativo = true;
@@ -108,8 +95,19 @@ export class AlocacaoService {
     });
   }
 
+  /*  */
+  async desallocate(id: number): Promise<void> {
+    const alocacao = await this.findOne(id);
+    alocacao.dataDesalocacao = new Date().toISOString().split('T')[0];
+    alocacao.ativo = false;
+    await this.alocacaoRepository.save(alocacao);
+  }
+
   /**
    * 🔍 Busca uma alocação por ID
+   * @param id ID da alocação
+   * @returns Alocação encontrada
+   * @throws NotFoundException se não encontrar
    */
   async findOne(id: number): Promise<AlocacaoEntity> {
     const alocacao = await this.alocacaoRepository.findOne({
@@ -125,7 +123,11 @@ export class AlocacaoService {
   }
 
   /**
-   * ✏️ Atualiza uma alocação
+   * ✏️ Atualiza uma alocação existente
+   * @param id ID da alocação
+   * @param updateAlocacaoDto Dados para atualização
+   * @returns Alocação atualizada
+   * @throws NotFoundException se não encontrar
    */
   async update(
     id: number, 
@@ -133,43 +135,70 @@ export class AlocacaoService {
   ): Promise<AlocacaoEntity> {
     const alocacao = await this.findOne(id);
 
-    // Validar datas se alteradas
+    // Validar datas se alguma for alterada
     if (
       updateAlocacaoDto.dataInicio || 
       updateAlocacaoDto.dataDesalocacao !== undefined ||
       updateAlocacaoDto.dataPrevisaoDesalocacao !== undefined
     ) {
-      const dataInicio = updateAlocacaoDto.dataInicio || alocacao.dataInicio;
-      const dataDesalocacao = updateAlocacaoDto.dataDesalocacao !== undefined 
-        ? updateAlocacaoDto.dataDesalocacao 
-        : alocacao.dataDesalocacao;
-      const dataPrevisaoDesalocacao = updateAlocacaoDto.dataPrevisaoDesalocacao !== undefined
-        ? updateAlocacaoDto.dataPrevisaoDesalocacao
-        : alocacao.dataPrevisaoDesalocacao;
+      // Type-safe: garantir que valores são strings
+      const dataInicio: string = updateAlocacaoDto.dataInicio ?? alocacao.dataInicio;
+      const dataDesalocacao: string | null | undefined = 
+        updateAlocacaoDto.dataDesalocacao !== undefined 
+          ? updateAlocacaoDto.dataDesalocacao 
+          : alocacao.dataDesalocacao;
+      const dataPrevisaoDesalocacao: string | null | undefined = 
+        updateAlocacaoDto.dataPrevisaoDesalocacao !== undefined
+          ? updateAlocacaoDto.dataPrevisaoDesalocacao
+          : alocacao.dataPrevisaoDesalocacao;
 
-      this.validarDatas(dataInicio, dataDesalocacao, dataPrevisaoDesalocacao);
+      this.validarDatas(dataInicio, dataPrevisaoDesalocacao);
     }
 
-    // Validar relações se fornecidas
-    await this.validarRelacoes(updateAlocacaoDto);
+    // Validar entidades relacionadas se alguma ID for alterada
+    if (
+      updateAlocacaoDto.ferramentaId ||
+      updateAlocacaoDto.centroCustoId ||
+      updateAlocacaoDto.funcionarioId
+    ) {
+      await this.validarEntidadesRelacionadas(
+        updateAlocacaoDto.ferramentaId ?? alocacao.ferramentaId,
+        updateAlocacaoDto.centroCustoId ?? alocacao.centroCustoId,
+        updateAlocacaoDto.funcionarioId ?? alocacao.funcionarioId,
+      );
+    }
 
     // Atualizar campos
     Object.assign(alocacao, updateAlocacaoDto);
-
     return await this.alocacaoRepository.save(alocacao);
   }
 
   /**
    * 🗑️ Remove uma alocação (soft delete)
+   * @param id ID da alocação
+   * @throws NotFoundException se não encontrar
    */
   async remove(id: number): Promise<void> {
     const alocacao = await this.findOne(id);
+
+     
+    const ferramenta = await this.ferramentaRepository.findOne({
+      where: { id: id },
+    });
+
+    if (!ferramenta) {
+      throw new NotFoundException(`Ferramenta com ID ${id} não encontrada`);
+    }
+
+    ferramenta.status = 'Disponivel';
     alocacao.ativo = false;
     await this.alocacaoRepository.save(alocacao);
   }
 
   /**
-   * 🔍 Busca alocações por funcionário
+   * 🔍 Busca alocações de um funcionário específico
+   * @param funcionarioId ID do funcionário
+   * @returns Array de alocações do funcionário
    */
   async findByFuncionario(funcionarioId: number): Promise<AlocacaoEntity[]> {
     return await this.alocacaoRepository.find({
@@ -180,7 +209,9 @@ export class AlocacaoService {
   }
 
   /**
-   * 🔍 Busca alocações por ferramenta
+   * 🔍 Busca alocações de uma ferramenta específica
+   * @param ferramentaId ID da ferramenta
+   * @returns Array de alocações da ferramenta
    */
   async findByFerramenta(ferramentaId: number): Promise<AlocacaoEntity[]> {
     return await this.alocacaoRepository.find({
@@ -191,7 +222,9 @@ export class AlocacaoService {
   }
 
   /**
-   * 🔍 Busca alocações por centro de custo
+   * 🔍 Busca alocações de um centro de custo específico
+   * @param centroCustoId ID do centro de custo
+   * @returns Array de alocações do centro de custo
    */
   async findByCentroCusto(centroCustoId: number): Promise<AlocacaoEntity[]> {
     return await this.alocacaoRepository.find({
@@ -202,106 +235,88 @@ export class AlocacaoService {
   }
 
   /**
-   * 🔍 Busca alocações ativas em um período
+   * 🔒 Valida existência e status ativo de entidades relacionadas
+   * @private Método auxiliar interno seguindo SRP
+   * @throws NotFoundException se alguma entidade não existir ou estiver inativa
    */
-  async findByPeriodo(dataInicio: Date, dataFim: Date): Promise<AlocacaoEntity[]> {
-    const query = this.alocacaoRepository
-      .createQueryBuilder('alocacao')
-      .leftJoinAndSelect('alocacao.ferramenta', 'ferramenta')
-      .leftJoinAndSelect('alocacao.centroCusto', 'centroCusto')
-      .leftJoinAndSelect('alocacao.funcionario', 'funcionario')
-      .where('alocacao.ativo = :ativo', { ativo: true })
-      .andWhere('alocacao.data_inicio <= :dataFim', { dataFim })
-      .andWhere(
-        '(alocacao.data_desalocacao IS NULL OR alocacao.data_desalocacao >= :dataInicio)', 
-        { dataInicio },
-      )
-      .orderBy('alocacao.data_inicio', 'DESC');
+  private async validarEntidadesRelacionadas(
+    ferramentaId: number,
+    centroCustoId: number,
+    funcionarioId: number,
+  ): Promise<void> {
+    const [ferramenta, centroCusto, funcionario] = await Promise.all([
+      this.ferramentaRepository.findOne({
+        where: { id: ferramentaId, ativo: true },
+      }),
+      this.centroCustoRepository.findOne({
+        where: { id: centroCustoId, ativo: true },
+      }),
+      this.funcionarioRepository.findOne({
+        where: { id: funcionarioId, ativo: true },
+      }),
+    ]);
 
-    return await query.getMany();
+    if (!ferramenta) {
+      throw new NotFoundException(
+        `Ferramenta com ID ${ferramentaId} não encontrada ou inativa`,
+      );
+    }
+
+    if (!centroCusto) {
+      throw new NotFoundException(
+        `Centro de Custo com ID ${centroCustoId} não encontrado ou inativo`,
+      );
+    }
+
+    if (!funcionario) {
+      throw new NotFoundException(
+        `Funcionário com ID ${funcionarioId} não encontrado ou inativo`,
+      );
+    }
   }
 
   /**
-   * 🔒 Valida consistência de datas
-   * @private
+   * 🔒 Valida consistência e regras de negócio das datas
+   * @private Método auxiliar interno seguindo SRP
+   * @throws BadRequestException se datas forem inválidas ou inconsistentes
    */
   private validarDatas(
-    dataInicio: Date,
-    dataDesalocacao: Date | null,
-    dataPrevisaoDesalocacao: Date | null,
+    dataInicio: string,
+    dataPrevisaoDesalocacao: string | null | undefined,
   ): void {
-    // Validar data de desalocação
-    if (dataDesalocacao && dataDesalocacao < dataInicio) {
-      throw new BadRequestException(
-        'Data de desalocação não pode ser anterior à data de início',
-      );
+    const inicio = new Date(dataInicio);
+
+    // Validar se data de início é válida
+    if (isNaN(inicio.getTime())) {
+      throw new BadRequestException('Data de início inválida');
     }
 
     // Validar data de previsão
-    if (dataPrevisaoDesalocacao && dataPrevisaoDesalocacao < dataInicio) {
-      throw new BadRequestException(
-        'Data prevista para término não pode ser anterior à data de início',
-      );
-    }
+    if (dataPrevisaoDesalocacao) {
+      const previsao = new Date(dataPrevisaoDesalocacao);
+      
+      if (isNaN(previsao.getTime())) {
+        throw new BadRequestException('Data prevista para término inválida');
+      }
 
-    // Se ambas existem, validar ordem
-    if (dataDesalocacao && dataPrevisaoDesalocacao) {
-      if (dataDesalocacao < dataPrevisaoDesalocacao) {
+      if (previsao < inicio) {
         throw new BadRequestException(
-          'Data de desalocação não pode ser anterior à data prevista para término',
+          'Data prevista para término não pode ser anterior à data de início',
         );
       }
     }
   }
 
   /**
-   * 🔒 Valida existência de entidades relacionadas
-   * @private
-   */
-  private async validarRelacoes(dto: UpdateAlocacaoDto): Promise<void> {
-    if (dto.ferramentaId) {
-      const ferramenta = await this.ferramentaRepository.findOne({
-        where: { id: dto.ferramentaId, ativo: true },
-      });
-      if (!ferramenta) {
-        throw new NotFoundException(
-          `Ferramenta com ID ${dto.ferramentaId} não encontrada ou inativa`,
-        );
-      }
-    }
-
-    if (dto.centroCustoId) {
-      const centroCusto = await this.centroCustoRepository.findOne({
-        where: { id: dto.centroCustoId, ativo: true },
-      });
-      if (!centroCusto) {
-        throw new NotFoundException(
-          `Centro de Custo com ID ${dto.centroCustoId} não encontrado ou inativo`,
-        );
-      }
-    }
-
-    if (dto.funcionarioId) {
-      const funcionario = await this.funcionarioRepository.findOne({
-        where: { id: dto.funcionarioId, ativo: true },
-      });
-      if (!funcionario) {
-        throw new NotFoundException(
-          `Funcionário com ID ${dto.funcionarioId} não encontrado ou inativo`,
-        );
-      }
-    }
-  }
-
-  /**
-   * 🔒 Verifica sobreposição de períodos
-   * @private
+   * 🔒 Verifica se há conflito de períodos de alocação
+   * @private Método auxiliar interno seguindo SRP
+   * @throws ConflictException se houver sobreposição de períodos
    */
   private async verificarSobreposicaoPeriodo(
     ferramentaId: number,
     funcionarioId: number,
-    dataInicio: Date,
-    dataDesalocacao: Date | null,
+    dataInicio: string,
+    dataPrevisaoDesalocacao: string | null | undefined,
     alocacaoIdIgnorar?: number,
   ): Promise<void> {
     const alocacoesExistentes = await this.alocacaoRepository.find({
@@ -312,22 +327,23 @@ export class AlocacaoService {
       },
     });
 
+    const inicio = new Date(dataInicio);
+    const fim = dataPrevisaoDesalocacao ? new Date(dataPrevisaoDesalocacao) : null;
+
     for (const alocacaoExistente of alocacoesExistentes) {
       // Ignorar a própria alocação em caso de update
       if (alocacaoIdIgnorar && alocacaoExistente.id === alocacaoIdIgnorar) {
         continue;
       }
 
-      const hasSobreposicao = this.calcularSobreposicaoPeriodo(
-        dataInicio,
-        dataDesalocacao,
-        alocacaoExistente.dataInicio,
-        alocacaoExistente.dataDesalocacao,
-      );
+      const inicioExistente = new Date(alocacaoExistente.dataInicio);
+      const fimExistente = alocacaoExistente.dataDesalocacao 
+        ? new Date(alocacaoExistente.dataDesalocacao)
+        : null;
 
-      if (hasSobreposicao) {
+      if (this.calcularSobreposicaoPeriodo(inicio, fim, inicioExistente, fimExistente)) {
         throw new ConflictException(
-          `Já existe uma alocação ativa para esta ferramenta e funcionário no período informado (${alocacaoExistente.dataInicio.toISOString().split('T')[0]} - ${alocacaoExistente.dataDesalocacao ? alocacaoExistente.dataDesalocacao.toISOString().split('T')[0] : 'Em andamento'})`,
+          `Já existe uma alocação ativa para esta ferramenta e funcionário no período informado`,
         );
       }
     }
@@ -335,7 +351,8 @@ export class AlocacaoService {
 
   /**
    * 🔒 Calcula se há sobreposição entre dois períodos
-   * @private
+   * @private Método auxiliar interno seguindo SRP
+   * @returns true se há sobreposição, false caso contrário
    */
   private calcularSobreposicaoPeriodo(
     inicio1: Date,
@@ -343,11 +360,11 @@ export class AlocacaoService {
     inicio2: Date,
     fim2: Date | null,
   ): boolean {
-    // Se não há data fim, considera período aberto (válido até hoje)
+    // Se não há data fim, considera período em aberto
     const fimReal1 = fim1 || new Date('2099-12-31');
     const fimReal2 = fim2 || new Date('2099-12-31');
 
-    // Verifica se há sobreposição
+    // Verifica sobreposição: início1 <= fim2 E fim1 >= início2
     return inicio1 <= fimReal2 && fimReal1 >= inicio2;
   }
 }

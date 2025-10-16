@@ -43,4 +43,10 @@ export class CreateFerramentaDto {
     @IsNotEmpty()
     @IsBoolean()
     ativo: boolean;
+
+    @ApiProperty({ example: 'disponivel', description: 'Estado da ferramenta' })
+    @IsNotEmpty()
+    @IsString()
+    @Length(2, 50)
+    status: string;
 }

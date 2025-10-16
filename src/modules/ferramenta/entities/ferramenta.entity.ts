@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { Entity,PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity,PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm";
 
 @Entity('ferramentas')
 export class Ferramenta {
@@ -29,13 +29,24 @@ export class Ferramenta {
     @ApiProperty({ example: 99.99, description: 'Valor da ferramenta' })
     @Column('decimal', { precision: 10, scale: 2 })
     valor: number;
-
+    
+    @ApiProperty({ example: 'disponivel', description: 'Estado da ferramenta' })
+    @Column()
+    status: string;
+    
+    
     /* descricao */
     @ApiProperty({ example: 'Um martelo de alta qualidade', description: 'Descrição da ferramenta' })
     @Column()
     descricao: string;
 
     @ApiProperty({ example: '2023-10-01T12:00:00Z', description: 'Data de criação do registro' })
-    @Column()
-    criadoEm: Date;
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @ApiProperty({ example: '2023-10-01T12:00:00Z', description: 'Data de atualização do registro' })
+    @CreateDateColumn()
+    updatedAt: Date;
+
+    
 }

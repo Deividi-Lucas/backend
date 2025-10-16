@@ -30,17 +30,8 @@ export class AlocacaoController {
   constructor(private readonly alocacaoService: AlocacaoService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Criar nova alocação' })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Alocação criada com sucesso',
-    type: AlocacaoEntity,
-  })
-  @ApiResponse({ status: 400, description: 'Dados inválidos' })
-  @ApiResponse({ status: 409, description: 'Conflito de período' })
   async create(@Body() createAlocacaoDto: CreateAlocacaoDto): Promise<AlocacaoEntity> {
-    return await this.alocacaoService.create(createAlocacaoDto);
+    return this.alocacaoService.create(createAlocacaoDto);
   }
 
   @Get()
