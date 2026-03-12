@@ -14,8 +14,6 @@ describe('FuncionarioController (e2e)', () => {
     id: 1,
     nome: 'João Silva',
     ativo: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
   };
 
   const mockRepository = {
@@ -25,6 +23,7 @@ describe('FuncionarioController (e2e)', () => {
     findOne: jest.fn().mockResolvedValue(mockFuncionario),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
+    remove: jest.fn().mockResolvedValue(mockFuncionario), // ✅ Adicionar este método
   };
 
   beforeAll(async () => {
@@ -173,7 +172,7 @@ describe('FuncionarioController (e2e)', () => {
     });
 
     it('should return 404 when deleting non-existent funcionario', () => {
-      mockRepository.delete.mockResolvedValueOnce({ affected: 0 });
+      mockRepository.findOne.mockResolvedValueOnce(null); // ✅ Mock findOne retornando null
       return request(app.getHttpServer())
         .delete('/funcionarios/999')
         .expect(404);
